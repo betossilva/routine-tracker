@@ -2,8 +2,21 @@
 import { GoogleGenAI } from "@google/genai";
 import { DailyLog, TimeRange } from "../types";
 
+const getClient = () => {
+  // AQUI: Chave de API adicionada diretamente no código conforme solicitado
+  // Isso permite que o app funcione fora do ambiente do Google AI Studio com sua chave pessoal
+  const apiKey = "AIzaSyBppKoER0GIBUeP-7zXPMwY3MKGbPLcOPU";
+  
+  if (!apiKey) {
+    console.warn("API_KEY not found.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 export const generateRoutineReport = async (logs: DailyLog[], range: TimeRange, userName?: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getClient();
+  if (!ai) return "Erro: Chave de API não configurada.";
 
   // Filter logs based on range
   const now = new Date();
