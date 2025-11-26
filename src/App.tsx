@@ -97,6 +97,12 @@ export default function App() {
     localStorage.setItem(USER_KEY, JSON.stringify(newUser));
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem(USER_KEY);
+    setUser(null);
+    setCurrentView(View.TRACKER); // Reset view
+  };
+
   // Update date if app stays open past midnight
   useEffect(() => {
     const timer = setInterval(() => {
@@ -209,6 +215,7 @@ export default function App() {
             user={user}
             onToggleActivity={handleToggleActivity}
             onUpdateDetails={handleUpdateDetails}
+            onLogout={handleLogout}
           />
         )}
         {currentView === View.ANALYTICS && (

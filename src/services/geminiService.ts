@@ -2,21 +2,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { DailyLog, TimeRange } from "../types";
 
-const getClient = () => {
-  // Use process.env.API_KEY as per strict guidelines.
-  // Assumes process.env.API_KEY is pre-configured and accessible.
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    console.warn("API_KEY not found.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 export const generateRoutineReport = async (logs: DailyLog[], range: TimeRange, userName?: string): Promise<string> => {
-  const ai = getClient();
-  if (!ai) return "Erro: Chave de API não configurada.";
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   // Filter logs based on range
   const now = new Date();

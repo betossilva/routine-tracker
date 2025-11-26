@@ -2,16 +2,17 @@
 import React from 'react';
 import { DailyLog, UserProfile } from '../types';
 import { ActivityCard } from '../components/ActivityCard';
-import { CalendarDays } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 interface TrackerProps {
   currentLog: DailyLog;
   user: UserProfile | null;
   onToggleActivity: (id: string) => void;
   onUpdateDetails: (id: string, details: string) => void;
+  onLogout: () => void;
 }
 
-export const Tracker: React.FC<TrackerProps> = ({ currentLog, user, onToggleActivity, onUpdateDetails }) => {
+export const Tracker: React.FC<TrackerProps> = ({ currentLog, user, onToggleActivity, onUpdateDetails, onLogout }) => {
   // Calculate progress
   const completedCount = currentLog.activities.filter(a => a.completed).length;
   const totalCount = currentLog.activities.length;
@@ -45,14 +46,24 @@ export const Tracker: React.FC<TrackerProps> = ({ currentLog, user, onToggleActi
                 <p className="text-slate-400 font-medium text-sm capitalize">{monthName}</p>
             </div>
             
-            <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl shadow-sm border border-brand-100 flex flex-col items-center min-w-[80px]">
-                 <div className="relative w-12 h-12 flex items-center justify-center">
-                    <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                        <path className="text-brand-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                        <path className="text-brand-500 transition-all duration-1000 ease-out" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                    </svg>
-                    <span className="absolute text-xs font-bold text-brand-700">{Math.round(progress)}%</span>
-                 </div>
+            <div className="flex flex-col items-end gap-2">
+                <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl shadow-sm border border-brand-100 flex flex-col items-center min-w-[80px]">
+                     <div className="relative w-12 h-12 flex items-center justify-center">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                            <path className="text-brand-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                            <path className="text-brand-500 transition-all duration-1000 ease-out" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                        </svg>
+                        <span className="absolute text-xs font-bold text-brand-700">{Math.round(progress)}%</span>
+                     </div>
+                </div>
+                
+                <button 
+                  onClick={onLogout}
+                  className="text-xs font-medium text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+                >
+                  <LogOut size={12} />
+                  Sair
+                </button>
             </div>
         </div>
       </header>
