@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { DailyLog, UserProfile, ChatMessage } from '../types';
+// AQUI ESTAVA O ERRO: Importando sendMessageToGemini corretamente agora
 import { sendMessageToGemini } from '../services/geminiService';
 import { Send, Bot, User, Trash2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';

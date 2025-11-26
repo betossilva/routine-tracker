@@ -2,7 +2,26 @@
 import { GoogleGenAI } from "@google/genai";
 import { DailyLog, ChatMessage, UserProfile } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Configuração para garantir que process.env funcione no ambiente Vite sem erros
+declare var process: {
+  env: {
+    API_KEY: string;
+    [key: string]: string | undefined;
+  }
+};
+
+// Tenta pegar a chave do process.env (padrão solicitado) ou import.meta.env (Vite)
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY;
+  } catch (e) {
+    // Fallback para Vite se process não estiver definido
+    return (import.meta as any).env.VITE_GEMINI_API_KEY || '';
+  }
+};
+
+const apiKey = getApiKey();
+const ai = new GoogleGenAI({ apiKey });
 
 export const sendMessageToGemini = async (
   message: string,
@@ -12,7 +31,6 @@ export const sendMessageToGemini = async (
 ): Promise<string> => {
   
   // Prepara o contexto de dados (últimos 14 dias para não exceder tokens desnecessariamente)
-  // Ordena do mais recente para o mais antigo, pega 14, e inverte para cronológico
   const sortedLogs = [...logs]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 14)
@@ -67,6 +85,6 @@ export const sendMessageToGemini = async (
     return response.text || "Não consegui gerar uma resposta agora.";
   } catch (error) {
     console.error("Erro no chat Gemini:", error);
-    return "Desculpe, estou tendo problemas para processar sua mensagem agora. Verifique sua conexão.";
+    return "Desculpe, estou tendo problemas para processar sua mensagem agora. Verifique sua conexão ou a chave de API.";
   }
 };
