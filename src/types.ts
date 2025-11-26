@@ -35,6 +35,13 @@ export interface UserProfile {
   photoUrl?: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: number;
+}
+
 export enum View {
   LOGIN = 'LOGIN',
   TRACKER = 'TRACKER',

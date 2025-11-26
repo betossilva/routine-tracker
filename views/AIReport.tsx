@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { DailyLog, TimeRange, UserProfile } from '../types';
-import { generateRoutineReport } from '../services/geminiService.ts.old';
-import { Sparkles, RefreshCw, Bot, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { DailyLog, UserProfile, ChatMessage } from '../types';
+import { sendMessageToGemini } from '../services/geminiService';
+import { Send, Bot, User, Trash2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface AIReportProps {
@@ -10,122 +10,217 @@ interface AIReportProps {
   user: UserProfile | null;
 }
 
-export const AIReport: React.FC<AIReportProps> = ({ logs, user }) => {
-  const [report, setReport] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<TimeRange>(TimeRange.WEEK);
+const CHAT_STORAGE_KEY = 'routine_tracker_chat_history_v1';
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    // Smooth scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    const result = await generateRoutineReport(logs, range, user?.name);
-    setReport(result);
-    setLoading(false);
+export const AIReport: React.FC<AIReportProps> = ({ logs, user }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Carregar histórico ao iniciar
+  useEffect(() => {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        console.error("Erro ao carregar chat", e);
+      }
+    } else {
+      // Mensagem de boas-vindas inicial se não houver histórico
+      setMessages([{
+        id: 'welcome',
+        role: 'model',
+        text: `Olá, ${user?.name?.split(' ')[0] || 'amigo'}! 👋 \n\nSou seu Coach de Rotina Inteligente. Posso analisar seus dados, sugerir melhorias na dieta e treino, ou apenas conversar sobre seu progresso. \n\nComo posso ajudar hoje?`,
+        timestamp: Date.now()
+      }]);
+    }
+  }, [user]);
+
+  // Salvar histórico sempre que mudar
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    }
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const getRangeLabel = () => {
-    switch(range) {
-      case TimeRange.WEEK: return "Últimos 7 dias";
-      case TimeRange.MONTH: return "Últimos 30 dias";
-      case TimeRange.YEAR: return "Histórico Anual";
-      default: return "";
+  const handleClearChat = () => {
+    if (window.confirm('Tem certeza que deseja apagar todo o histórico da conversa?')) {
+      const initialMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'model',
+        text: 'Histórico limpo! Vamos começar de novo. O que você gostaria de saber sobre sua rotina?',
+        timestamp: Date.now()
+      };
+      setMessages([initialMsg]);
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify([initialMsg]));
     }
-  }
+  };
+
+  const handleSend = async (textOverride?: string) => {
+    const textToSend = textOverride || input;
+    if (!textToSend.trim() || isLoading) return;
+
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      text: textToSend,
+      timestamp: Date.now()
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsLoading(true);
+
+    // Pequeno delay para UX
+    setTimeout(scrollToBottom, 100);
+
+    const responseText = await sendMessageToGemini(textToSend, messages, logs, user);
+
+    const botMsg: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      role: 'model',
+      text: responseText,
+      timestamp: Date.now()
+    };
+
+    setMessages(prev => [...prev, botMsg]);
+    setIsLoading(false);
+  };
+
+  const suggestions = [
+    "Como foi minha semana?",
+    "Dicas para dormir melhor",
+    "Analise meus treinos",
+    "Estou comendo bem?"
+  ];
 
   return (
-    <div className="pb-48 pt-10 px-6 max-w-lg mx-auto min-h-screen flex flex-col">
-      <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-brand-100 rounded-xl text-brand-600">
+    <div className="flex flex-col h-[calc(100vh-100px)] pt-6 pb-4 max-w-lg mx-auto relative">
+      {/* Header */}
+      <div className="px-6 pb-4 flex justify-between items-center bg-brand-50/90 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-tr from-brand-400 to-brand-600 rounded-xl text-white shadow-lg shadow-brand-500/20">
             <Bot size={24} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Relatório Inteligente</h1>
-      </div>
-      <p className="text-slate-500 mb-6 text-sm leading-relaxed">
-        Selecione o período e deixe a IA analisar seus padrões, sugerir melhorias e criar um plano de ação.
-      </p>
-
-      {/* Range Selector for AI */}
-      <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-100 flex mb-8">
-        {[
-          { id: TimeRange.WEEK, label: 'Semanal' },
-          { id: TimeRange.MONTH, label: 'Mensal' },
-          { id: TimeRange.YEAR, label: 'Anual' }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => { setRange(tab.id); setReport(null); }}
-            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide rounded-lg transition-all ${
-              range === tab.id 
-                ? 'bg-slate-800 text-white shadow-md' 
-                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Coach IA</h1>
+            <p className="text-xs text-brand-700 font-medium flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"/> Online
+            </p>
+          </div>
+        </div>
+        <button 
+          onClick={handleClearChat}
+          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+          title="Limpar conversa"
+        >
+          <Trash2 size={18} />
+        </button>
       </div>
 
-      {!report && !loading && (
-        <div className="flex-1 flex flex-col items-center justify-center py-4 animate-in zoom-in-95 duration-500">
-          <div className="relative mb-8">
-             <div className="absolute inset-0 bg-brand-400 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-             <div className="w-24 h-24 bg-gradient-to-tr from-brand-50 to-white rounded-3xl shadow-soft flex items-center justify-center relative z-10 border border-brand-100">
-                <Sparkles size={48} className="text-brand-500" />
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto px-4 space-y-6 scroll-smooth pb-4 no-scrollbar">
+        {messages.map((msg, idx) => {
+          const isUser = msg.role === 'user';
+          return (
+            <div 
+              key={msg.id} 
+              className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}
+            >
+              {!isUser && (
+                <div className="w-8 h-8 rounded-full bg-white border border-brand-100 flex items-center justify-center text-brand-600 shrink-0 shadow-sm">
+                  <Bot size={14} />
+                </div>
+              )}
+              
+              <div 
+                className={`max-w-[80%] p-4 rounded-2xl shadow-sm text-sm leading-relaxed ${
+                  isUser 
+                    ? 'bg-brand-600 text-white rounded-br-none' 
+                    : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'
+                }`}
+              >
+                {isUser ? (
+                   <p>{msg.text}</p>
+                ) : (
+                   <div className="prose prose-sm prose-p:my-1 prose-headings:text-brand-800 prose-strong:text-brand-700 text-slate-700">
+                     <ReactMarkdown>{msg.text}</ReactMarkdown>
+                   </div>
+                )}
+                <span className={`text-[10px] block mt-1 opacity-60 ${isUser ? 'text-brand-100' : 'text-slate-400'}`}>
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
+              {isUser && (
+                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 shrink-0 overflow-hidden">
+                  {user?.photoUrl ? <img src={user.photoUrl} alt="Me" className="w-full h-full object-cover" /> : <User size={14} />}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {isLoading && (
+          <div className="flex justify-start gap-2 items-end animate-in fade-in duration-300">
+             <div className="w-8 h-8 rounded-full bg-white border border-brand-100 flex items-center justify-center text-brand-600 shrink-0 shadow-sm">
+                <Bot size={14} />
+             </div>
+             <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-bl-none shadow-sm flex gap-1">
+                <div className="w-2 h-2 bg-brand-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-brand-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-brand-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
              </div>
           </div>
-          
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Gerar {getRangeLabel()}</h3>
-          <p className="text-center text-slate-500 mb-10 max-w-[280px] text-sm">
-            A IA analisará seus dados de {range === TimeRange.YEAR ? 'todo o ano' : range === TimeRange.MONTH ? 'todo o mês' : 'toda a semana'} para encontrar tendências.
-          </p>
-          
-          <button
-            onClick={handleGenerate}
-            className="w-full py-4 bg-brand-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-brand-500/20 hover:bg-brand-700 hover:scale-[1.02] transition-all active:scale-95 flex items-center justify-center gap-3"
-          >
-            <Sparkles size={20} className="text-brand-200" />
-            <span>Analisar Agora</span>
-          </button>
-        </div>
-      )}
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
-      {loading && (
-        <div className="flex-1 flex flex-col items-center justify-center space-y-6">
-            <div className="relative">
-                <div className="w-16 h-16 border-4 border-slate-100 border-t-brand-500 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <Calendar size={20} className="text-brand-500 animate-pulse" />
-                </div>
-            </div>
-            <p className="text-slate-500 font-medium animate-pulse text-center">
-              Lendo seu histórico {range === TimeRange.WEEK ? 'semanal' : range === TimeRange.MONTH ? 'mensal' : 'anual'}...
-            </p>
-        </div>
-      )}
-
-      {report && !loading && (
-        <div className="animate-in slide-in-from-bottom-8 duration-700">
-          <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-soft border border-white relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-400 to-blue-500"></div>
-            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Relatório {range}</span>
-               <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full">{new Date().toLocaleDateString()}</span>
-            </div>
-            <div className="prose prose-sm prose-slate prose-headings:text-slate-800 prose-p:text-slate-600 prose-strong:text-brand-700 max-w-none">
-                <ReactMarkdown>{report}</ReactMarkdown>
-            </div>
+      {/* Input Area */}
+      <div className="px-4 pb-4 pt-2">
+        {/* Quick Suggestions - Only show if not loading and messages < 2 or last message was AI */}
+        {!isLoading && messages.length > 0 && messages[messages.length - 1].role === 'model' && (
+          <div className="flex gap-2 overflow-x-auto pb-3 no-scrollbar mask-gradient">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                onClick={() => handleSend(s)}
+                className="whitespace-nowrap px-4 py-2 bg-white border border-brand-100 text-brand-700 text-xs font-semibold rounded-full shadow-sm hover:bg-brand-50 hover:border-brand-300 transition-all active:scale-95 flex items-center gap-1"
+              >
+                <Sparkles size={12} />
+                {s}
+              </button>
+            ))}
           </div>
-          
+        )}
+
+        <div className="relative flex items-center">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Pergunte sobre sua rotina..."
+            disabled={isLoading}
+            className="w-full bg-white border border-slate-200 text-slate-800 text-sm pl-4 pr-12 py-4 rounded-full shadow-lg shadow-slate-200/50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all placeholder:text-slate-400 disabled:opacity-70 disabled:cursor-not-allowed"
+          />
           <button
-            onClick={handleGenerate}
-            className="mt-6 w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            onClick={() => handleSend()}
+            disabled={!input.trim() || isLoading}
+            className="absolute right-2 p-2 bg-brand-600 text-white rounded-full shadow-md hover:bg-brand-700 disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-90"
           >
-            <RefreshCw size={16} />
-            Regerar Análise
+            <Send size={18} className={isLoading ? 'opacity-0' : 'opacity-100'} />
+            {isLoading && <div className="absolute inset-0 flex items-center justify-center"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>}
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };
