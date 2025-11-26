@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { DailyLog, TimeRange, UserProfile } from '../types';
-import { generateRoutineReport } from '../services/geminiService';
+import { generateRoutineReport } from '../services/geminiService.ts.old';
 import { Sparkles, RefreshCw, Bot, Calendar } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
