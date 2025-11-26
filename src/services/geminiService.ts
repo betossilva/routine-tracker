@@ -3,9 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 import { DailyLog, TimeRange } from "../types";
 
 const getClient = () => {
-  // AQUI: Chave de API adicionada diretamente no código conforme solicitado
-  // Isso permite que o app funcione fora do ambiente do Google AI Studio com sua chave pessoal
-  const apiKey = "AIzaSyBppKoER0GIBUeP-7zXPMwY3MKGbPLcOPU";
+  // Use process.env.API_KEY as per strict guidelines.
+  // Assumes process.env.API_KEY is pre-configured and accessible.
+  const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
     console.warn("API_KEY not found.");
